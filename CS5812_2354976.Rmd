@@ -1,0 +1,619 @@
+---
+title: "PDA Project"
+author: "Andrey"
+date: "2024-03-19"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+
+```{r}
+# Libraries
+library(ggplot2)
+library(Hmisc)
+library(tidyr)
+library(dplyr)
+library(reshape2)
+library(corrplot)
+library(ggcorrplot)
+library(factoextra)
+library(Metrics)
+library(validate)
+library(stats)
+library(fpc)
+library(cluster)
+```
+
+```{r}
+read.csv("WHO.csv")
+df <- read.csv("WHO.csv")
+```
+
+```{r}
+# Checking the summary of the data
+summary(df)
+# Checking the structure of the data
+str(df)
+```
+
+```{r}
+# Checking the missing values
+colSums(is.na(df))
+```
+
+```{r}
+# Calculating the number of outliers in the numeric columns
+outliers <- function(data) {
+  Q1 <- quantile(data, 0.25, na.rm = TRUE)
+  Q3 <- quantile(data, 0.75, na.rm = TRUE)
+  IQR <- Q3 - Q1
+  lower_bound <- Q1 - 1.5 * IQR
+  upper_bound <- Q3 + 1.5 * IQR
+  outliers <- data[data < lower_bound | data > upper_bound & !is.na(data)]
+  return(outliers)
+}
+
+IQR_year <- outliers(df$Year)
+IQR_Life.expectancy <- outliers(df$Life.expectancy)
+IQR_Unemployment <- outliers(df$Unemployment)
+IQR_Infant.Mortality <- outliers(df$Infant.Mortality)
+IQR_GDP <- outliers(df$GDP)
+IQR_GNI <- outliers(df$GNI)
+IQR_Clean.fuels.and.cooking.technologies <- outliers(df$Clean.fuels.and.cooking.technologies)
+IQR_Per.Capita <- outliers(df$Per.Capita)
+IQR_Mortality.caused.by.road.traffic.injury <- outliers(df$Mortality.caused.by.road.traffic.injury)
+IQR_Tuberculosis.Incidence <- outliers(df$Tuberculosis.Incidence)
+IQR_DPT.Immunization <- outliers(df$DPT.Immunization)
+IQR_HepB3.Immunization <- outliers(df$HepB3.Immunization)
+IQR_Measles.Immunization <- outliers(df$Measles.Immunization)
+IQR_Hospital.beds <- outliers(df$Hospital.beds)
+IQR_Basic.sanitation.services <- outliers(df$Basic.sanitation.services)
+IQR_Tuberculosis.treatment <- outliers(df$Tuberculosis.treatment)
+IQR_Urban.population <- outliers(df$Urban.population)
+IQR_Rural.population <- outliers(df$Rural.population)
+IQR_Non.communicable.Mortality <- outliers(df$Non.communicable.Mortality)
+IQR_Sucide.Rate <- outliers(df$Sucide.Rate)
+
+print(paste("Number of outliers in Year:", length(IQR_year)))
+print(paste("Number of outliers in Life.expectancy:", length(IQR_Life.expectancy)))
+print(paste("Number of outliers in Unemployment:", length(IQR_Unemployment)))
+print(paste("Number of outliers in Infant.Mortality:", length(IQR_Infant.Mortality)))
+print(paste("Number of outliers in GDP:", length(IQR_GDP)))
+print(paste("Number of outliers in GNI:", length(IQR_GNI)))
+print(paste("Number of outliers in Clean.fuels.and.cooking.technologies:", length(IQR_Clean.fuels.and.cooking.technologies)))
+print(paste("Number of outliers in Per.Capita:", length(IQR_Per.Capita)))
+print(paste("Number of outliers in Mortality.caused.by.road.traffic.injury:", length(IQR_Mortality.caused.by.road.traffic.injury)))
+print(paste("Number of outliers in Tuberculosis.Incidence:", length(IQR_Tuberculosis.Incidence)))
+print(paste("Number of outliers in DPT.Immunization:", length(IQR_DPT.Immunization)))
+print(paste("Number of outliers in HepB3.Immunization:", length(IQR_HepB3.Immunization)))
+print(paste("Number of outliers in Measles.Immunization:", length(IQR_Measles.Immunization)))
+print(paste("Number of outliers in Hospital.beds:", length(IQR_Hospital.beds)))
+print(paste("Number of outliers in Basic.sanitation.services:", length(IQR_Basic.sanitation.services)))
+print(paste("Number of outliers in Tuberculosis.treatment:", length(IQR_Tuberculosis.treatment)))
+print(paste("Number of outliers in Urban.population:", length(IQR_Urban.population)))
+print(paste("Number of outliers in Rural.population:", length(IQR_Rural.population)))
+print(paste("Number of outliers in Non.communicable.Mortality:", length(IQR_Non.communicable.Mortality)))
+print(paste("Number of outliers in Sucide.Rate:", length(IQR_Sucide.Rate)))
+```
+```{r}
+#Check any misspell in country names
+table(df$Country)
+```
+```{r}
+#comprehension checking for each variables using a set of validation rules. 
+life_data_check <- validator(
+      
+      #Check if there is any duplicated rows
+      duplicated_rows = anyDuplicated(df),
+      #No negative value in numerical variables
+      okYear = Year>=0,
+      okLife.expectancy =Life.expectancy >=0,
+      okUnemployment = Unemployment >= 0 & Unemployment <= 100,
+      okInfant.Mortality =Infant.Mortality >= 0& Infant.Mortality <= 1000,
+      okGDP = GDP >= 0,
+      okGNI = GNI >= 0,
+      okClean.fuels.and.cooking.technologies = Clean.fuels.and.cooking.technologies >= 0& Clean.fuels.and.cooking.technologies <= 100,
+      okPer.Capita = Per.Capita >= 0,
+      okMortality.caused.by.road.traffic.injury = Mortality.caused.by.road.traffic.injury >= 0& Mortality.caused.by.road.traffic.injury <= 100000,
+      okTuberculosis.Incidence = Tuberculosis.Incidence >= 0& Tuberculosis.Incidence <= 100000,
+      okDPT.Immunization = DPT.Immunization >= 0& DPT.Immunization <= 100,
+      okHepB3.Immunization = HepB3.Immunization >= 0& HepB3.Immunization <= 100,
+      okMeasles.Immunization = Measles.Immunization >= 0& Measles.Immunization <= 100,
+      okHospital.beds = Hospital.beds >= 0& Hospital.beds <= 1000,
+      okBasic.sanitation.services =Basic.sanitation.services >= 0& Basic.sanitation.services <= 100.00,
+      okTuberculosis.treatment = Tuberculosis.treatment >= 0& Tuberculosis.treatment <= 100,
+      okUrban.population = Urban.population >= 0& Urban.population <= 100,
+      okRural.population = Rural.population >= 0& Rural.population <= 100,
+      okNon.communicable.Mortality = Non.communicable.Mortality >= 0& Non.communicable.Mortality <= 1000,
+      okSucide.Rate = Sucide.Rate >= 0& Sucide.Rate <= 100000
+                  )                     
+                      
+qual.check<- confront(df, life_data_check)
+summary(qual.check)
+#Create a validation plot
+plot(qual.check)
+```
+## Data Cleaning
+
+```{r}
+# Converting the categorical variables to factors
+df$Country <- as.factor(df$Country)
+df$Gender <- as.factor(df$Gender)
+```
+
+```{r}
+# Log transformation of GDP and GNI to reduce skewness
+df$GDP <- log(df$GDP)
+df$GNI <- log(df$GNI)
+```
+
+## EDA
+```{r}
+#Histogram for numerical variables
+
+num_cols <- df[c("Year", "Life.expectancy", "Unemployment", "Infant.Mortality", "GDP", "GNI", "Clean.fuels.and.cooking.technologies", "Per.Capita", "Mortality.caused.by.road.traffic.injury", "Tuberculosis.Incidence", "DPT.Immunization", "HepB3.Immunization", "Measles.Immunization", "Hospital.beds", "Basic.sanitation.services", "Tuberculosis.treatment", "Urban.population", "Rural.population", "Non.communicable.Mortality", "Sucide.Rate")]
+
+for (col in colnames(num_cols)) {
+  histogram_plot <- ggplot(num_cols, aes(x = .data[[col]])) +
+                      geom_histogram(bins =20,size = 0.2, fill = 'grey',color = 'black', aes(y = ..density..)) +
+                      geom_density(alpha=.2,size = 0.3, fill="blue") +
+                      labs(x = col, y = 'Density') +
+                      theme_minimal() +
+                      ggtitle(paste('Histogram and Density of', col))+
+                      theme(panel.border = element_rect(colour = "black", fill=NA, size=1))
+  print(histogram_plot)
+}
+```
+```{r}
+# Boxplots for each numeric variable
+
+for (col in colnames(num_cols)) {
+  boxplot_plot <- ggplot(num_cols, aes(y = .data[[col]], x = 1)) +
+                  geom_boxplot(fill = 'grey', size = 0.3 , color = 'black', outlier.color =  "black", outlier.size = 0.5,notch = TRUE)+
+                    labs(y = col, x = '') +
+                    theme_minimal() +
+                    ggtitle(paste('Boxplot of', col))+
+                    theme(panel.border = element_rect(colour = "black", fill = NA, size = 1))
+  print(boxplot_plot)
+}
+```
+
+```{r}
+# Barplot for Gender
+ggplot(df, aes(x = reorder(Gender, -table(Gender)[Gender]))) +
+    geom_bar(fill = 'gray', color = 'black', stat = "count") +
+    xlab("") + geom_text(stat = "count", aes(label = ..count..), vjust = -0.3) +
+    ggtitle("Barplot of Brand") +
+    theme(axis.text.x = element_text(hjust = 1))
+    
+```
+```{r}
+# Scaterplot for numerical variables vs Life.expectancy
+
+num_cols2 <- c("Year", "Unemployment", "Infant.Mortality", "GDP", "GNI", "Clean.fuels.and.cooking.technologies", "Per.Capita", "Mortality.caused.by.road.traffic.injury", "Tuberculosis.Incidence", "DPT.Immunization", "HepB3.Immunization", "Measles.Immunization", "Hospital.beds", "Basic.sanitation.services", "Tuberculosis.treatment", "Urban.population", "Rural.population", "Non.communicable.Mortality", "Sucide.Rate")
+
+for (var in num_cols2) {
+  scatter_plot <- ggplot(df, aes_string(x = var, y = 'Life.expectancy')) +
+                    geom_point(alpha = 0.3, size = 0.5, color = "blue") +
+                    geom_smooth(color = "darkorange", fill = "darkorange", method = "lm", span = 0.2) +
+                    labs(title = paste('Scatter Plot of Life.expectancy vs', var), x = var, y = 'Life.expectancy') +
+                    theme_minimal()+
+                    theme(panel.border = element_rect(colour = "black", fill=NA, size=0.5),
+                    axis.text.x = element_text(angle = 0, hjust = 1))
+  print(scatter_plot)
+}
+```
+
+```{r}
+# Boxplot for Gender vs Life expectancy
+png("fm.png", width=1200, height=800, res=100)
+box_gender <- ggplot(df, aes(x = Gender, y = Life.expectancy , fill = Gender)) +
+  geom_boxplot() +
+  ggtitle("Life expectancy by Gender")+
+  theme_bw()+
+  theme(axis.text.x = element_text(angle = 0, hjust = 1), legend.position = "none")
+
+print(box_gender)
+dev.off()
+```
+```{r}
+# Heatmap for correlation matrix
+
+num_cols3 <- df[c("Year","Life.expectancy", "Unemployment", "Infant.Mortality", "GDP", "GNI", "Clean.fuels.and.cooking.technologies", "Per.Capita", "Mortality.caused.by.road.traffic.injury", "Tuberculosis.Incidence", "DPT.Immunization", "HepB3.Immunization", "Measles.Immunization", "Hospital.beds", "Basic.sanitation.services", "Tuberculosis.treatment", "Urban.population", "Rural.population", "Non.communicable.Mortality", "Sucide.Rate")]
+png("heatmap.png", width=1200, height=1200)
+cor_matrix <- cor(num_cols3)
+col <- colorRampPalette(c("black", "darkred","red", "bisque1"))(200)
+text_col <- ifelse(cor_matrix > 0.4 , "black", "white")
+corrplot(cor_matrix, method="color",col = col ,addCoef.col=text_col, tl.col="black",
+         tl.pos="lt", tl.cex=1, tl.srt=45, tl.offset = 0.5, cl.pos='r', cl.cex=0.6, cl.ratio=0.1)
+dev.off()
+```
+
+
+## PCA
+```{r}
+# Perform PCA on the dataset (without : Country, Year, Gender, Life.expectancy)
+df_events <- df[c("Year", "Unemployment", "Infant.Mortality", "GDP", "GNI", "Clean.fuels.and.cooking.technologies", "Per.Capita", "Mortality.caused.by.road.traffic.injury", "Tuberculosis.Incidence", "DPT.Immunization", "HepB3.Immunization", "Measles.Immunization", "Hospital.beds", "Basic.sanitation.services", "Tuberculosis.treatment", "Urban.population", "Rural.population", "Non.communicable.Mortality", "Sucide.Rate")]
+
+pc_df_events <- prcomp(df_events, center = TRUE, scale. = TRUE)
+```
+
+```{r}
+# Plot the variance per PC
+fviz_screeplot(pc_df_events, addlabels = TRUE, ylim = c(0, 40), ncp = 18) 
+```
+
+```{r}
+# Calculate the proportion of exaplained variance (PEV) from the std values
+pc_df_events_var <- pc_df_events$sdev^2
+pc_df_events_PEV <- pc_df_events_var / sum(pc_df_events_var)
+```
+
+```{r}
+cumulative_pev <- cumsum(pc_df_events_PEV)
+
+plot(cumulative_pev,
+     type = "b", 
+     pch = 20,
+     cex = 1.5, 
+     col = "blue",
+     ylim = c(0, 1),
+     xlab = "Number of Components",
+     ylab = "Cumulative PEV",
+     main = "Cumulative Proportion of Explained Variance")
+
+abline(h = 0.8, col = 'red', lty = 'dashed')
+abline(h = seq(0, 1, by = 0.1), col = "lightgray", lty = "dotted") 
+abline(v = seq(1, length(cumulative_pev), by = 1), col = "lightgray", lty = "dotted")
+```
+```{r}
+# Getting and Inspection of the Loadings
+pc_df_events_loadings <- pc_df_events$rotation
+pc_df_events_loadings
+```
+
+```{r}
+color_palette <- rainbow(n = nrow(pc_df_events_loadings))
+
+png("pc_loadings_variables_colored.png", width = 1800, height = 1300, res = 100)
+
+par(mfrow = c(2, 3), mar = c(4, 4, 2, 1))
+
+for (i in 1:6) {
+  barplot(
+    pc_df_events_loadings[, i], 
+    main = paste("PC", i),
+    col = color_palette, 
+    border = "white", 
+    ylab = "Loadings",
+    ylim = c(-1, 1) 
+  )
+  axis(2, seq(-1, 1, 0.1))
+}
+dev.off()
+```
+```{r}
+png("variables_colors_legend.png", width = 800, height = 800, res = 100)
+
+plot(0, type="n", xlim=c(0, 1), ylim=c(0, nrow(pc_df_events_loadings)), xlab="", ylab="", axes=FALSE)
+
+# Legend with colors and names
+for (i in 1:nrow(pc_df_events_loadings)) {
+  rect(0.2, i-0.5, 0.3, i+0.4, col=color_palette[i], border="white")
+  text(0.4, i, labels=row.names(pc_df_events_loadings)[i], pos=4)
+}
+dev.off()
+```
+
+```{r}
+# Generate a biplot for PC1 and PC2
+png("Biplot.png", width=3000, height=3000)
+biplot(
+  pc_df_events,
+  scale = 0,
+  col = c('grey40','red')
+)
+dev.off()
+```
+## Merge the original data with the PCs
+```{r}
+# merging df with pc_df_events$x in one unified dataframe
+df_pc <- cbind(df, pc_df_events$x[, 1:7])
+head(df_pc)
+```
+
+## Visualize the correlation matrix of the original data with the PCs
+```{r}
+num_cols_pc <- df_pc[c("Year","Life.expectancy", "Unemployment", "Infant.Mortality", "GDP", "GNI", "Clean.fuels.and.cooking.technologies", "Per.Capita", "Mortality.caused.by.road.traffic.injury", "Tuberculosis.Incidence", "DPT.Immunization", "HepB3.Immunization", "Measles.Immunization", "Hospital.beds", "Basic.sanitation.services", "Tuberculosis.treatment", "Urban.population", "Rural.population", "Non.communicable.Mortality", "Sucide.Rate", "PC1", "PC2", "PC3", "PC4", "PC5", "PC6", "PC7")]
+
+png("heatmap_pc.png", width=1200, height=1200)
+cor_matrix_pc <- cor(num_cols_pc)
+col <- colorRampPalette(c("black", "darkred","red", "bisque1"))(200)
+text_col <- ifelse(cor_matrix_pc > 0.4 , "black", "white")
+corrplot(cor_matrix_pc, method="color",col = col ,addCoef.col=text_col, tl.col="black",
+         tl.pos="lt", tl.cex=1, tl.srt=45, tl.offset = 0.5, cl.pos='r', cl.cex=0.6, cl.ratio=0.1)
+dev.off()
+
+```
+##Clustering Analysis with hierarchical clustering
+```{r}
+# Scale the data
+num_cols3 <- df[c("Year","Life.expectancy", "Unemployment", "Infant.Mortality", "GDP", "GNI", "Clean.fuels.and.cooking.technologies", "Per.Capita", "Mortality.caused.by.road.traffic.injury", "Tuberculosis.Incidence", "DPT.Immunization", "HepB3.Immunization", "Measles.Immunization", "Hospital.beds", "Basic.sanitation.services", "Tuberculosis.treatment", "Urban.population", "Rural.population", "Non.communicable.Mortality", "Sucide.Rate")]
+
+# Standardize the data
+num_cols3_std <- scale(num_cols3)
+```
+
+```{r}
+# Calculate the distance
+dist_num_cols3 <- dist(num_cols3_std, method = "euclidean")
+```
+
+```{r}
+# Hierarchical clustering algorithm
+
+hc_num_cols3 <- hclust(dist_num_cols3, method = "complete")
+hc_num_cols3
+
+num_cols3.cluster <- cutree(hc_num_cols3, k = 6)
+
+```
+```{r}
+# Plot the dendrogram
+
+png("dendrogram.png", width= 6000, height=3000, res = 100)
+plot(hc_num_cols3, cex = 0.6, hang = -1)
+dev.off()
+```
+## Clustering Analysis with K-means clustering
+```{r}
+# Scale the data
+num_cols_cl <- df[c("Year","Life.expectancy", "Unemployment", "Infant.Mortality", "GDP", "GNI", "Clean.fuels.and.cooking.technologies", "Per.Capita", "Mortality.caused.by.road.traffic.injury", "Tuberculosis.Incidence", "DPT.Immunization", "HepB3.Immunization", "Measles.Immunization", "Hospital.beds", "Basic.sanitation.services", "Tuberculosis.treatment", "Urban.population", "Rural.population", "Non.communicable.Mortality", "Sucide.Rate")]
+
+# Standardize the data
+num_cols_std <- scale(num_cols_cl)
+```
+
+```{r}
+# Define a range of k values to test
+k_values <- 2:10  # Example range of k values from 2 to 10
+
+# Initialize a vector to store silhouette scores for each k
+silhouette_scores <- numeric(length(k_values))
+
+# Iterate over each k value
+for (i in seq_along(k_values)) {
+  k <- k_values[i]
+  
+  # Perform k-means clustering
+  set.seed(123)  # for reproducibility
+  kmeans_result <- kmeans(num_cols_std, centers = k)
+  
+  # Calculate silhouette score
+  silhouette_object <- silhouette(kmeans_result$cluster, dist(num_cols_std))
+  silhouette_scores[i] <- mean(silhouette_object[, "sil_width"])
+}
+
+# Visualize the silhouette scores for different k values
+plot(k_values, silhouette_scores, type = "b", pch = 16, xlab = "Number of Clusters (k)", ylab = "Silhouette Score", main = "Silhouette Score for K-Means Clustering")
+
+```
+K-means clustering suggests that the optimal number of clusters is 2,where the silhoutte score is the highest. 
+
+```{r}
+png("Cluster121233.png", width=10000, height=10000, res=600)
+
+# Perform k-means clustering with k=2 
+set.seed(123)  # for reproducibility
+kmeans_result <- kmeans(num_cols_std, centers = 2)
+
+# Calculating silhouette score
+silhouette_object <- silhouette(kmeans_result$cluster, dist(num_cols_std))
+silhouette_scores <- mean(silhouette_object[, "sil_width"])
+
+# silhouette score
+print(silhouette_scores)
+
+cluster_colors <- c("blue", "red")
+plot(silhouette_object, col = cluster_colors, border = cluster_colors, main = "Silhouette Plot")
+dev.off()
+```
+
+```{r}
+# Visualize the clusters and save the plot as a PNG file
+png("k means clusters.png", width=2500, height=2500)
+fviz_cluster(list(data = num_cols_std, cluster = kmeans_result$cluster))
+dev.off()
+```
+
+## Modeling Random Forest
+```{r}
+# install the tree and randomForest packages from CRAN
+if(require(randomForest) == FALSE){
+  install.packages('randomForest')
+  library(randomForest)
+}
+```
+## We split the data into training testing and validation sets
+```{r}
+set.seed(42)
+
+n_rows <- nrow(df) 
+
+# Calculate sizes for splits
+n_train <-round(n_rows * 0.7)
+n_test <- round(n_rows * 0.2)
+
+# Sample indices for training set
+training_idx <- sample(seq_len(n_rows), size=n_train)
+
+# Sample indices for test set from the remaining indices
+remaining_idx <- setdiff(seq_len(n_rows), training_idx)
+test_idx <- sample(remaining_idx, size=n_test)
+
+# The remaining indices will be used for the validation set
+validation_idx <- setdiff(remaining_idx, test_idx)
+
+# Split the dataframe according to the sampled indices
+training_df <-df[training_idx, ]
+testing_df <- df[test_idx, ]
+validation_df <-df[validation_idx, ]
+```
+
+### Before PCA ###
+```{r}
+# define a formula for predicting Life expectancy
+df_formula = Life.expectancy ~ Year + Unemployment + Infant.Mortality + GDP + GNI + Clean.fuels.and.cooking.technologies + Per.Capita + Mortality.caused.by.road.traffic.injury + Tuberculosis.Incidence + DPT.Immunization + HepB3.Immunization + Measles.Immunization +  Hospital.beds + Basic.sanitation.services + Tuberculosis.treatment + Urban.population + Rural.population + Non.communicable.Mortality + Sucide.Rate
+
+
+rf_df <- randomForest(df_formula, ntree = 800, importance = T, data = training_df, mtry = 6)
+rf_df
+```
+
+```{r}
+# plot the variable importance according to the
+varImpPlot(rf_df, type = 1)
+```
+```{r}
+# compute the prediction for the random forest model
+rf_df_pred <- predict(rf_df, testing_df[, c("Year", "Unemployment", "Infant.Mortality", "GDP", "GNI", "Clean.fuels.and.cooking.technologies", "Per.Capita", "Mortality.caused.by.road.traffic.injury", "Tuberculosis.Incidence", "DPT.Immunization", "HepB3.Immunization", "Measles.Immunization", "Hospital.beds", "Basic.sanitation.services", "Tuberculosis.treatment", "Urban.population", "Rural.population", "Non.communicable.Mortality", "Sucide.Rate")], type= "response")
+```
+
+```{r}
+# Calculate the time taken for training and prediction
+time_train <- system.time({
+  rf_df <- randomForest(df_formula, ntree = 800, importance = T, data = training_df, mtry = 6)
+})
+
+time_predict <- system.time({
+  rf_df_pred <- predict(rf_df, testing_df[, c("Year", "Unemployment", "Infant.Mortality", "GDP", "GNI", "Clean.fuels.and.cooking.technologies", "Per.Capita", "Mortality.caused.by.road.traffic.injury", "Tuberculosis.Incidence", "DPT.Immunization", "HepB3.Immunization", "Measles.Immunization", "Hospital.beds", "Basic.sanitation.services", "Tuberculosis.treatment", "Urban.population", "Rural.population", "Non.communicable.Mortality", "Sucide.Rate")], type= "response")
+})
+
+print(time_train)
+print(time_predict)
+```
+
+## Evaluate the model
+```{r}
+actual_values <- testing_df$Life.expectancy
+#MSE
+mse <- mean((rf_df_pred - testing_df$Life.expectancy)^2)
+print(paste("MSE:", mse))
+
+#RMSE
+rmse <- sqrt(mse)
+print(paste("RMSE:", rmse))
+
+#MAE
+mae <- mean(abs(rf_df_pred - testing_df$Life.expectancy))
+print(paste("MAE:", mae))
+
+#R-squared
+rsq <- 1 - sum((actual_values - rf_df_pred)^2) / sum((actual_values - mean(actual_values))^2)
+print(paste("R-squared:", rsq))
+```
+
+
+```{r}
+df_comparison <- data.frame(Actual = actual_values, Predicted = rf_df_pred)
+head(df_comparison)
+```
+
+```{r}
+data <- data.frame(Actual = actual_values, Predicted = rf_df_pred)
+
+ggplot(data, aes(x = Actual, y = Predicted)) +
+  geom_point(alpha = 0.5) +  
+  geom_smooth(method = "lm", color = "red", se = FALSE) + 
+  labs(title = "Actual vs Predicted", x = "Actual values", y = "Predicted values") +
+  theme_minimal() + 
+  theme(plot.title = element_text(hjust = 0.5), text = element_text(size = 12))
+```
+
+### After PCA
+```{r}
+set.seed(42)
+
+n_rows_pc <- nrow(df_pc) 
+
+# Calculate sizes for splits
+n_train_pc <-round(n_rows_pc * 0.7)
+n_test_pc <- round(n_rows_pc * 0.2)
+
+# Sample indices for training set
+training_idx <- sample(seq_len(n_rows_pc), size=n_train_pc)
+
+# Sample indices for test set from the remaining indices
+remaining_idx <- setdiff(seq_len(n_rows_pc), training_idx)
+test_idx <- sample(remaining_idx, size=n_test_pc)
+
+# The remaining indices will be used for the validation set
+validation_idx <- setdiff(remaining_idx, test_idx)
+
+# Split the dataframe according to the sampled indices
+pc_training <- df_pc[training_idx, ]
+pc_testing <- df_pc[test_idx, ]
+pc_validation <- df_pc[validation_idx, ]
+```
+
+```{r}
+# define a formula for predicting 
+df_formula_pc = Life.expectancy ~ PC1 + PC2 + PC3 + PC4 + PC5 + PC6 + PC7
+
+rf_df_pc <- randomForest(df_formula_pc, ntree = 300, importance = T, data = pc_training, mtry = 2)
+rf_df_pc
+```
+```{r}
+# plot the variable importancea according to the random forest model
+varImpPlot(rf_df_pc, type = 1)
+```
+```{r}
+# compute the prediction for the random forest model
+
+rf_df_pc_pred <- predict(rf_df_pc, pc_testing[, c("PC1", "PC2", "PC3", "PC4", "PC5", "PC6", "PC7")], type= "response")
+
+```
+
+```{r}
+# Calculate the time taken for training and prediction
+time_train_pc <- system.time({
+  rf_df_pc <- randomForest(df_formula_pc, ntree = 300, importance = T, data = pc_training, mtry = 2)
+})
+
+time_predict_pc <- system.time({
+  rf_df_pred <- predict(rf_df_pc, pc_testing[, c("PC1", "PC2", "PC3", "PC4", "PC5", "PC6", "PC7")], type= "response")
+})
+
+print(time_train_pc)
+print(time_predict_pc)
+```
+
+```{r}
+#MSE
+mse <- mean((rf_df_pc_pred - pc_testing$Life.expectancy)^2)
+print(paste("MSE:", mse))
+
+#RMSE
+rmse <- sqrt(mse)
+print(paste("RMSE:", rmse))
+
+#MAE
+mae <- mean(abs(rf_df_pc_pred - pc_testing$Life.expectancy))
+print(paste("MAE:", mae))
+
+#R-squared
+rsq_pc <- 1 - sum((actual_values - rf_df_pc_pred)^2) / sum((actual_values - mean(actual_values))^2)
+print(paste("R-squared:", rsq_pc))
+```
+```{r}
+data_pc <- data.frame(Actual = actual_values, Predicted = rf_df_pc_pred)
+
+ggplot(data_pc, aes(x = Actual, y = Predicted)) +
+  geom_point(alpha = 0.5) +  
+  geom_smooth(method = "lm", color = "red", se = FALSE) + 
+  labs(title = "Actual vs Predicted", x = "Actual values", y = "Predicted values") +
+  theme_minimal() + 
+  theme(plot.title = element_text(hjust = 0.5), text = element_text(size = 12))
+```
+
